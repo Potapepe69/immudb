@@ -32,10 +32,12 @@ V_COMMIT := $(shell git rev-parse HEAD)
 #V_BUILT_BY := "$(shell echo "`git config user.name`<`git config user.email`>")"
 V_BUILT_BY := $(shell git config user.email)
 V_BUILT_AT := $(shell date +%s)
-V_LDFLAGS_COMMON := -s -X "github.com/codenotary/immudb/cmd/version.Version=${VERSION}" \
+V_LDFLAGS_SYMBOL := -s
+V_LDFLAGS_BUILD := -X "github.com/codenotary/immudb/cmd/version.Version=${VERSION}" \
 					-X "github.com/codenotary/immudb/cmd/version.Commit=${V_COMMIT}" \
 					-X "github.com/codenotary/immudb/cmd/version.BuiltBy=${V_BUILT_BY}"\
 					-X "github.com/codenotary/immudb/cmd/version.BuiltAt=${V_BUILT_AT}"
+V_LDFLAGS_COMMON := ${V_LDFLAGS_SYMBOL} ${V_LDFLAGS_BUILD}
 V_LDFLAGS_STATIC := ${V_LDFLAGS_COMMON} \
 				  -X github.com/codenotary/immudb/cmd/version.Static=static \
 				  -extldflags "-static"
@@ -83,19 +85,24 @@ immutest:
 
 .PHONY: immuclient-static
 immuclient-static:
-	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC) -extldflags  "-static"' ./cmd/immuclient
+	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuclient
 
 .PHONY: immuadmin-static
 immuadmin-static:
-	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC) -extldflags "-static"' ./cmd/immuadmin
+	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immuadmin
 
 .PHONY: immudb-static
 immudb-static: webconsole
-	CGO_ENABLED=0 $(GO) build $(IMMUDB_BUILD_TAGS) -a -ldflags '$(V_LDFLAGS_STATIC) -extldflags "-static"' ./cmd/immudb
+	CGO_ENABLED=0 $(GO) build $(IMMUDB_BUILD_TAGS) -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immudb
+
+.PHONY: immudb-fips
+immudb-fips: webconsole
+	CGO_ENABLED=1 $(GO) build -tags=webconsole,fips -a -o immudb -ldflags '$(V_LDFLAGS_BUILD)' ./cmd/immudb/fips
+	./check-fips.sh immudb
 
 .PHONY: immutest-static
 immutest-static:
-	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC) -extldflags "-static"' ./cmd/immutest
+	CGO_ENABLED=0 $(GO) build -a -ldflags '$(V_LDFLAGS_STATIC)' ./cmd/immutest
 
 .PHONY: vendor
 vendor:
@@ -193,7 +200,7 @@ dist/binaries:
     			goarch=`echo $$os_arch|sed 's|^.*/||'`; \
     		    GOOS=$$goos GOARCH=$$goarch $(GO) build -tags webconsole -v -ldflags '${V_LDFLAGS_COMMON}' -o ./dist/$$service-v${VERSION}-$$goos-$$goarch ./cmd/$$service/$$service.go ; \
     		done; \
-    		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -tags webconsole -a -ldflags '${V_LDFLAGS_STATIC} -extldflags "-static"' -o ./dist/$$service-v${VERSION}-linux-amd64-static ./cmd/$$service/$$service.go ; \
+    		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -tags webconsole -a -ldflags '${V_LDFLAGS_STATIC}' -o ./dist/$$service-v${VERSION}-linux-amd64-static ./cmd/$$service/$$service.go ; \
     		mv ./dist/$$service-v${VERSION}-windows-amd64 ./dist/$$service-v${VERSION}-windows-amd64.exe; \
     	done
 
